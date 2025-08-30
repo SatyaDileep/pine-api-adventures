@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Play, Check, Target, Code2, Send, Bot } from "lucide-react";
+import { Copy, Play, Target, Send } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -15,6 +15,9 @@ import { Quest } from "@/data/questData";
 import { AgentAvatar } from "./AgentAvatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { Input } from "./ui/input";
+import axios from "axios";
+
+const PEGA_API_BASE_URL = import.meta.env.VITE_PEGA_API_BASE_URL;
 
 interface QuestCardProps {
   quest: Quest;
@@ -26,6 +29,17 @@ type Message = {
   content: string;
   showApiButton?: boolean;
   suggestions?: string[];
+  apiConfig?: {
+    IsAPIToBeCalledReady?: boolean;
+    API_URL?: string;
+    API_method?: string;
+    BearerToken?: string | null;
+    API_Payload?: {
+      client_id?: string;
+      client_secret?: string;
+      grant_type?: string;
+    };
+  } | null;
 };
 
 const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
@@ -34,17 +48,120 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [isAgentLoading, setIsAgentLoading] = useState(false);
   const [isApiPlaygroundOpen, setIsApiPlaygroundOpen] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setConversation([
-      {
-        sender: "agent",
-        content: `Hello! I'm your guide for the "${quest.title}" quest. Ready to get started?`,
-        suggestions: ["Show me the code", "What's the objective?", "Tell me more about this quest"],
-      },
-    ]);
-  }, [quest]);
+    const startConversation = async () => {
+      setIsAgentLoading(true);
+      try {
+        // Log initial setup and environment
+        console.log('=== Starting Conversation Creation ===');
+        console.log('Environment Check:', {
+          PEGA_API_BASE_URL,
+          'import.meta.env.VITE_PEGA_API_BASE_URL': import.meta.env.VITE_PEGA_API_BASE_URL
+        });
+
+        // Conversation creation request
+        const completeUrl = `${PEGA_API_BASE_URL}/api/application/v2/ai-agents/@BASECLASS!APIAGENT/conversations`;
+        console.log('API Call 1 - Create Conversation:', {
+          url: completeUrl,
+          method: 'POST'
+        });
+
+        const response = await axios.post(completeUrl);
+        console.log('API Call 1 - Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: response.data
+        });
+        
+        const conversationID  = response.data.ID;
+        console.log('Extracted conversationID:', conversationID);
+        setConversationId(conversationID);
+        
+        // Welcome message request
+        const welcomeUrl = `${PEGA_API_BASE_URL}/api/application/v2/ai-agents/@BASECLASS!APIAGENT/conversations/${conversationID}`;
+        console.log('API Call 2 - Send Welcome Message:', {
+          url: welcomeUrl,
+          method: 'PATCH',
+          data: { Request: "start" }
+        });
+
+        const welcomeResponse = await axios.patch(welcomeUrl, {
+          Request: "start"
+        });
+        console.log('API Call 2 - Response:', {
+          status: welcomeResponse.status,
+          statusText: welcomeResponse.statusText,
+          data: welcomeResponse.data
+        });
+        
+        setConversation([
+          {
+            sender: "agent",
+            content: welcomeResponse.data.response
+          },
+        ]);
+      } catch (error) {
+        console.log('=== Error in Conversation Setup ===');
+        if (axios.isAxiosError(error)) {
+          // Log the request that failed
+          console.log('Failed Request Details:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            data: error.config?.data,
+            headers: error.config?.headers
+          });
+
+          // Log the error response
+          console.log('Error Response:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+          });
+
+          // Log network error if any
+          if (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED') {
+            console.log('Network Error:', {
+              code: error.code,
+              message: error.message
+            });
+          }
+
+          // Full error object for complete debugging
+          console.log('Complete Error Object:', {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            code: error.code
+          });
+        } else {
+          console.log('Unexpected Error:', {
+            error: error,
+            type: typeof error,
+            stack: error instanceof Error ? error.stack : 'No stack trace'
+          });
+        }
+        
+        // Log current environment state
+        console.log('Environment State:', {
+          PEGA_API_BASE_URL,
+          'import.meta.env.VITE_PEGA_API_BASE_URL': import.meta.env.VITE_PEGA_API_BASE_URL,
+          'Current conversationId': conversationId
+        });
+        toast({
+          title: "Error",
+          description: "Could not connect to the agent. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAgentLoading(false);
+      }
+    };
+
+    startConversation();
+  }, [quest, toast]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -64,42 +181,82 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
     setUserInput("");
     setIsAgentLoading(true);
 
-    // Simulate agent response
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    let agentResponse: Message;
-
-    if (text.toLowerCase().includes("code")) {
-      agentResponse = {
-        sender: "agent",
-        content: `Here is the code snippet for this quest in ${quest.language}. You can copy it and then test it in the API Playground.`,
-        showApiButton: true,
-      };
-    } else if (text.toLowerCase().includes("objective")) {
-      agentResponse = {
-        sender: "agent",
-        content: `The main objective is: "${quest.objective}". Let me know when you're ready for the code.`,
-        suggestions: ["I'm ready for the code", "What's the expected output?"],
-      };
-    } else if (text.toLowerCase().includes("output")) {
-        agentResponse = {
-            sender: "agent",
-            content: `The expected output is a success message, like this: 
-json
-${quest.expectedOutput}
-`,
-            suggestions: ["Show me the code", "How do I test this?"],
-        };
-    } else {
-      agentResponse = {
-        sender: "agent",
-        content: "I can help you with the code, objective, or expected output. What would you like to know?",
-        suggestions: ["Show me the code", "What's the objective?", "What's the expected output?"],
-      };
+    if (!conversationId) {
+        setIsAgentLoading(false);
+        toast({
+          title: "Connection Error",
+          description: "Lost connection to the agent. Please refresh the page.",
+          variant: "destructive",
+        });
+        return;
     }
 
-    setConversation(prev => [...prev, agentResponse]);
-    setIsAgentLoading(false);
+    try {
+      const messageUrl = `${PEGA_API_BASE_URL}/api/application/v2/ai-agents/@BASECLASS!APIAGENT/conversations/${conversationId}`;
+      console.log('Sending message to:', messageUrl);
+      
+      const response = await axios.patch(messageUrl, {
+        Request: text,
+      });
+      console.log('Message response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data
+      });
+      
+      // Parse the response to check for API call information
+      const responseText = response.data.response;
+      let apiConfig = null;
+      let showApiButton = false;
+      
+      // Try to extract JSON from the response if it exists
+      try {
+        // Look for any JSON content between ``` markers
+        const jsonBlocks = responseText.match(/```json\s*({[\s\S]*?})\s*```/g);
+        
+        if (jsonBlocks) {
+          // Test each JSON block found
+          for (const block of jsonBlocks) {
+            try {
+              // Extract the JSON content between the markers
+              const jsonContent = block.match(/```json\s*({[\s\S]*?})\s*```/)[1];
+              const parsedConfig = JSON.parse(jsonContent);
+              
+              // Check if this JSON has the API config marker
+              if (parsedConfig.IsAPIToBeCalledReady) {
+                apiConfig = parsedConfig;
+                showApiButton = true;
+                console.log('Found valid API config:', apiConfig);
+                break; // Stop after finding the first valid API config
+              }
+            } catch (jsonError) {
+              console.log('Failed to parse JSON block:', block);
+              continue; // Try next block if this one fails
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Error parsing API config:', error);
+        console.log('Response text was:', responseText);
+      }
+
+      const agentResponse: Message = {
+        sender: "agent",
+        content: response.data.response,
+        showApiButton: showApiButton,
+        apiConfig: apiConfig // Add this to your Message type
+      };
+      setConversation(prev => [...prev, agentResponse]);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Could not send message to the agent.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAgentLoading(false);
+    }
   };
 
   const copyToClipboard = async (text: string) => {
@@ -170,25 +327,25 @@ ${quest.expectedOutput}
 
       {/* Conversational UI */}
       <div className="flex-grow bg-gradient-card border border-border/50 shadow-card-custom rounded-xl flex flex-col overflow-hidden relative">
-        <ScrollArea className="flex-grow p-4 pb-24">
+        <ScrollArea className="flex-grow p-4 pb-24" ref={scrollAreaRef}>
           <div className="space-y-6">
             {conversation.map((msg, index) => (
               <div key={index} className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
                 {msg.sender === 'agent' && <AgentAvatar />}
                 <div className={`max-w-md rounded-xl px-4 py-3 ${msg.sender === 'agent' ? 'bg-secondary/50' : 'bg-quest-primary/20'}`}>
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  {msg.showApiButton && (
+                  {msg.showApiButton && msg.apiConfig && (
                     <div className="mt-4">
                         <div className="relative bg-secondary/50 p-4 rounded-lg overflow-x-auto text-sm border border-border/50 max-h-64">
                             <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => copyToClipboard(quest.codeSnippet)}
+                                onClick={() => copyToClipboard(JSON.stringify(msg.apiConfig, null, 2))}
                                 className="absolute top-2 right-2 h-7 w-7"
                             >
                                 <Copy className="w-4 h-4" />
                             </Button>
-                            <pre><code>{quest.codeSnippet}</code></pre>
+                            <pre><code>{JSON.stringify(msg.apiConfig, null, 2)}</code></pre>
                         </div>
                         <Dialog open={isApiPlaygroundOpen} onOpenChange={setIsApiPlaygroundOpen}>
                         <DialogTrigger asChild>
@@ -199,13 +356,18 @@ ${quest.expectedOutput}
                         </DialogTrigger>
                         <DialogContent className="max-w-4xl">
                           <DialogHeader>
-                            <DialogTitle>API Playground - {quest.title}</DialogTitle>
+                            <DialogTitle>API Playground - Token Generation</DialogTitle>
                           </DialogHeader>
                           <ApiPlayground
-                            initialUrl={quest.validationEndpoint}
-                            initialMethod={quest.api?.method}
-                            initialHeaders={quest.api?.headers}
-                            initialBody={quest.api?.body}
+                            initialUrl={msg.apiConfig.API_URL}
+                            initialMethod={msg.apiConfig.API_method?.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'}
+                            initialHeaders={{
+                              'Content-Type': 'application/json',
+                              ...(msg.apiConfig.BearerToken && {
+                                'Authorization': `Bearer ${msg.apiConfig.BearerToken}`
+                              })
+                            }}
+                            initialBody={msg.apiConfig.API_Payload}
                             onSuccess={handleValidationSuccess}
                             onError={handleValidationError}
                           />
