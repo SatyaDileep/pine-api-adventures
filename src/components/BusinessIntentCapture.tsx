@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Target, Sparkles, ArrowRight, CreditCard, RefreshCw, Calendar } from "lucide-react";
 
 interface BusinessIntentCaptureProps {
@@ -56,12 +58,8 @@ const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) =
   } 
 
   const paymentOptions = ["Points", "UPI", "Card", "Netbanking"];
-  const handlePaymentMethodChange = (method: string) => {
-    setPaymentMethods((prev) =>
-      prev.includes(method)
-        ? prev.filter((m) => m !== method)
-        : [...prev, method]
-    );
+  const handlePaymentMethodChange = (methods: string[]) => {
+    setPaymentMethods(methods);
   };
   const handleSuggestionClick = (suggestion: string) => {
     setSelectedSuggestion(suggestion);
@@ -86,11 +84,12 @@ const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) =
         </div>
 
         <Card className="bg-gradient-card border-border/50 shadow-card-custom p-8 mb-8">
-          <div className="space-y-6">
-            <div>
-              <label className="text-lg font-semibold mb-3 block">
-                Describe your integration goal:
-              </label>
+          <Tabs defaultValue="text" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="text">Describe your Goal</TabsTrigger>
+              <TabsTrigger value="examples">Choose from Examples</TabsTrigger>
+            </TabsList>
+            <TabsContent value="text">
               <Textarea
                 value={intent}
                 onChange={(e) => {
@@ -100,58 +99,58 @@ const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) =
                 placeholder="Example: I want to collect payments for my online store and handle refunds automatically..."
                 className="min-h-[120px] text-base"
               />
-            </div>
+            </TabsContent>
+            <TabsContent value="examples">
+              <div className="grid md:grid-cols-2 gap-3">
+                {suggestedIntents.map((suggestion, index) => {
+                  const Icon = suggestion.icon;
+                  const isSelected = selectedSuggestion === suggestion.text;
+                  return (
+                    <Card
+                      key={index}
+                      className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        isSelected 
+                          ? 'bg-quest-primary/10 border-quest-primary/50' 
+                          : 'hover:bg-secondary/50'
+                      }`}
+                      onClick={() => handleSuggestionClick(suggestion.text)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{suggestion.text}</div>
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            {suggestion.category}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+          </Tabs>
 
+          <div className="space-y-6">
             <div>
               <label className="text-lg font-semibold mb-3 block">
                 Supported Payment Methods:
               </label>
-              <div className="flex flex-wrap gap-4">
+              <ToggleGroup 
+                type="multiple" 
+                variant="outline"
+                value={paymentMethods}
+                onValueChange={handlePaymentMethodChange}
+                className="flex flex-wrap gap-4"
+              >
                 {paymentOptions.map((method) => (
-                  <label key={method} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={paymentMethods.includes(method)}
-                      onChange={() => handlePaymentMethodChange(method)}
-                    />
+                  <ToggleGroupItem key={method} value={method} aria-label={`Toggle ${method}`}>
                     {method}
-                  </label>
+                  </ToggleGroupItem>
                 ))}
-              </div>
-            </div>
-
-            <div className="text-center">
-              <span className="text-muted-foreground">or choose from popular use cases:</span>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-3">
-              {suggestedIntents.map((suggestion, index) => {
-                const Icon = suggestion.icon;
-                const isSelected = selectedSuggestion === suggestion.text;
-                return (
-                  <Card
-                    key={index}
-                    className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md ${
-                      isSelected 
-                        ? 'bg-quest-primary/10 border-quest-primary/50' 
-                        : 'hover:bg-secondary/50'
-                    }`}
-                    onClick={() => handleSuggestionClick(suggestion.text)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{suggestion.text}</div>
-                        <Badge variant="secondary" className="text-xs mt-1">
-                          {suggestion.category}
-                        </Badge>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
+              </ToggleGroup>
             </div>
 
             <Button

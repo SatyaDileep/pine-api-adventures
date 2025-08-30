@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Star, Target, Zap } from "lucide-react";
+import { Trophy, Star, Target, Zap, Home } from "lucide-react";
 
 interface ProgressTrackerProps {
   currentQuest: number;
@@ -34,12 +35,15 @@ const ProgressTracker = ({
   };
 
   return (
-    <div className="fixed top-4 right-4 w-80 z-50">
+    <div className="fixed top-4 right-4 w-64 z-50">
       <Card className="bg-gradient-card border-border/50 shadow-card-custom">
-        <div className="p-6">
+        <div className="p-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg">Progress</h3>
+            <Button variant="ghost" size="icon" onClick={() => window.location.href = '/'}>
+              <Home className="w-4 h-4" />
+            </Button>
             <Badge variant="outline" className="border-quest-primary text-quest-primary">
               {language}
             </Badge>
