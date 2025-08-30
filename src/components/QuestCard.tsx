@@ -40,6 +40,8 @@ type Message = {
       grant_type?: string;
     };
   } | null;
+  apiResponse?: any;
+  apiError?: any;
 };
 
 const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
@@ -272,23 +274,69 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
     }
   };
 
-  const handleValidationSuccess = (response: any) => {
+  const handleValidationSuccess = async (response: any) => {
     console.log("Validation successful:", response);
+    // Show success toast
     toast({
-      title: "Quest Validated!",
-      description: "You have successfully completed the quest objective.",
+      title: "API Call Successful!",
+      description: "The API request completed successfully.",
     });
-    onComplete();
-    setIsApiPlaygroundOpen(false);
+
+    // Update the conversation message with the API response
+    setConversation(prev => {
+      const lastMsg = {...prev[prev.length - 1]};
+      if (lastMsg.apiConfig) {
+        lastMsg.apiResponse = response;
+      }
+      return [...prev.slice(0, -1), lastMsg];
+    });
+
+    // Send API response to agent
+    if (conversationId) {
+      try {
+        const messageUrl = `${PEGA_API_BASE_URL}/api/application/v2/ai-agents/@BASECLASS!APIAGENT/conversations/${conversationId}`;
+        await axios.patch(messageUrl, {
+          Request: `API Response: ${JSON.stringify(response, null, 2)}`
+        });
+      } catch (error) {
+        console.error("Error sending API response to agent:", error);
+      }
+    }
   };
 
-  const handleValidationError = (error: any) => {
-    console.error("Validation failed:", error);
+  const handleValidationError = async (error: any) => {
+    console.error("API call failed:", error);
+    // Show error toast
     toast({
-      title: "Validation Failed",
-      description: "The API call did not meet the quest requirements.",
+      title: "API Call Failed",
+      description: error.message || "The API request failed.",
       variant: "destructive",
     });
+
+    // Update the conversation message with the API error
+    setConversation(prev => {
+      const lastMsg = {...prev[prev.length - 1]};
+      if (lastMsg.apiConfig) {
+        lastMsg.apiError = error;
+      }
+      return [...prev.slice(0, -1), lastMsg];
+    });
+
+    // Send error to agent
+    if (conversationId) {
+      try {
+        const messageUrl = `${PEGA_API_BASE_URL}/api/application/v2/ai-agents/@BASECLASS!APIAGENT/conversations/${conversationId}`;
+        await axios.patch(messageUrl, {
+          Request: `API Error: ${JSON.stringify({
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data
+          }, null, 2)}`
+        });
+      } catch (sendError) {
+        console.error("Error sending API error to agent:", sendError);
+      }
+    }
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -371,6 +419,23 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
                             onSuccess={handleValidationSuccess}
                             onError={handleValidationError}
                           />
+                          {/* Continue button section */}
+                          {(msg.apiResponse || msg.apiError) && (
+                            <div className="mt-4 flex justify-end">
+                              <Button 
+                                onClick={() => {
+                                  setIsApiPlaygroundOpen(false);
+                                  // Only update progress if API call was successful
+                                  if (msg.apiResponse && !msg.apiError) {
+                                    onComplete();
+                                  }
+                                }}
+                                className="bg-gradient-primary"
+                              >
+                                Continue
+                              </Button>
+                            </div>
+                          )}
                         </DialogContent>
                       </Dialog>
                     </div>
