@@ -1,3 +1,5 @@
+import { Method } from "axios";
+
 export interface Quest {
   id: string;
   title: string;
@@ -9,6 +11,11 @@ export interface Quest {
   difficulty: "Easy" | "Medium" | "Hard";
   language: string;
   validationEndpoint?: string;
+  api?: {
+    method: Method;
+    headers?: Record<string, string>;
+    body?: Record<string, any>;
+  };
 }
 
 export const questData: Record<string, Quest[]> = {
@@ -43,7 +50,19 @@ Base URL: https://sandbox-api.pinelabs.com
 Timestamp: 2024-01-15T10:30:45.123456`,
       xpReward: 100,
       difficulty: "Easy",
-      language: "Python"
+      language: "Python",
+      validationEndpoint: "https://sandbox-api.pinelabs.com/v1/test-endpoint/setup",
+      api: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer YOUR_SANDBOX_KEY"
+        },
+        body: {
+          "merchantId": "YOUR_MERCHANT_ID",
+          "setupComplete": true
+        }
+      }
     },
     {
       id: "python-auth",
@@ -92,7 +111,8 @@ Access Token: eyJhbGciOiJIUzI1NiIsInR5...
 Expires in: 3600 seconds`,
       xpReward: 200,
       difficulty: "Medium",
-      language: "Python"
+      language: "Python",
+      validationEndpoint: "https://sandbox-api.pinelabs.com/v1/test-endpoint/auth"
     },
     {
       id: "python-payment",

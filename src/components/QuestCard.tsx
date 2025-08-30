@@ -4,29 +4,27 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Play, Check, AlertCircle, Target, Code2, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import ApiPlayground from "./ApiPlayground";
+import { Quest } from "@/data/questData";
 
 interface QuestCardProps {
-  quest: {
-    id: string;
-    title: string;
-    objective: string;
-    description: string;
-    codeSnippet: string;
-    expectedOutput: string;
-    xpReward: number;
-    difficulty: "Easy" | "Medium" | "Hard";
-    language: string;
-  };
+  quest: Quest;
   onComplete: () => void;
-  onValidate: () => Promise<boolean>;
 }
 
-const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
-  // Removed validation state
+const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
   const { toast } = useToast();
   const [agentInput, setAgentInput] = useState("");
   const [agentResponse, setAgentResponse] = useState<string | null>(null);
   const [isAgentLoading, setIsAgentLoading] = useState(false);
+  const [isApiPlaygroundOpen, setIsApiPlaygroundOpen] = useState(false);
 
   const handleAskAgent = async () => {
     setIsAgentLoading(true);
@@ -50,7 +48,24 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
     }
   };
 
-  // Removed handleValidate function
+  const handleValidationSuccess = (response: any) => {
+    console.log("Validation successful:", response);
+    toast({
+      title: "Quest Validated!",
+      description: "You have successfully completed the quest objective.",
+    });
+    onComplete();
+    setIsApiPlaygroundOpen(false);
+  };
+
+  const handleValidationError = (error: any) => {
+    console.error("Validation failed:", error);
+    toast({
+      title: "Validation Failed",
+      description: "The API call did not meet the quest requirements.",
+      variant: "destructive",
+    });
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -102,15 +117,40 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
                 <h3 className="font-semibold">Code Implementation</h3>
                 <Badge variant="secondary">{quest.language}</Badge>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyToClipboard(quest.codeSnippet)}
-                className="hover:border-quest-primary/50"
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(quest.codeSnippet)}
+                  className="hover:border-quest-primary/50"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy
+                </Button>
+                {quest.validationEndpoint && (
+                  <Dialog open={isApiPlaygroundOpen} onOpenChange={setIsApiPlaygroundOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="default" size="sm" className="bg-gradient-primary">
+                        <Play className="w-4 h-4 mr-2" />
+                        Test in API Playground
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl">
+                      <DialogHeader>
+                        <DialogTitle>API Playground - {quest.title}</DialogTitle>
+                      </DialogHeader>
+                      <ApiPlayground
+                        initialUrl={quest.validationEndpoint}
+                        initialMethod={quest.api?.method}
+                        initialHeaders={quest.api?.headers}
+                        initialBody={quest.api?.body}
+                        onSuccess={handleValidationSuccess}
+                        onError={handleValidationError}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
             </div>
             <div className="relative">
               <pre
