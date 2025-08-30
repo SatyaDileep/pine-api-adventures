@@ -45,14 +45,24 @@ const suggestedIntents = [
 const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) => {
   const [intent, setIntent] = useState("");
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
 
   const handleSubmit = () => {
     const finalIntent = selectedSuggestion || intent;
     if (finalIntent.trim()) {
-      onIntentSubmit(finalIntent);
+      // You may want to update onIntentSubmit to accept paymentMethods as well
+      onIntentSubmit({ intent: finalIntent, paymentMethods });
     }
-  };
+  } 
 
+  const paymentOptions = ["Points", "UPI", "Card", "Netbanking"];
+  const handlePaymentMethodChange = (method: string) => {
+    setPaymentMethods((prev) =>
+      prev.includes(method)
+        ? prev.filter((m) => m !== method)
+        : [...prev, method]
+    );
+  };
   const handleSuggestionClick = (suggestion: string) => {
     setSelectedSuggestion(suggestion);
     setIntent(suggestion);
@@ -92,6 +102,24 @@ const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) =
               />
             </div>
 
+            <div>
+              <label className="text-lg font-semibold mb-3 block">
+                Supported Payment Methods:
+              </label>
+              <div className="flex flex-wrap gap-4">
+                {paymentOptions.map((method) => (
+                  <label key={method} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={paymentMethods.includes(method)}
+                      onChange={() => handlePaymentMethodChange(method)}
+                    />
+                    {method}
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div className="text-center">
               <span className="text-muted-foreground">or choose from popular use cases:</span>
             </div>
@@ -100,7 +128,6 @@ const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) =
               {suggestedIntents.map((suggestion, index) => {
                 const Icon = suggestion.icon;
                 const isSelected = selectedSuggestion === suggestion.text;
-                
                 return (
                   <Card
                     key={index}
