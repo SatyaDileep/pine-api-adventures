@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Play, Check, AlertCircle, Target, Code2 } from "lucide-react";
+import { Copy, Play, Check, AlertCircle, Target, Code2, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,9 +22,20 @@ interface QuestCardProps {
 }
 
 const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<'success' | 'error' | null>(null);
+  // Removed validation state
   const { toast } = useToast();
+  const [agentInput, setAgentInput] = useState("");
+  const [agentResponse, setAgentResponse] = useState<string | null>(null);
+  const [isAgentLoading, setIsAgentLoading] = useState(false);
+
+  const handleAskAgent = async () => {
+    setIsAgentLoading(true);
+    setAgentResponse(null);
+    // Simulate agent response
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    setAgentResponse(`Agent says: ${agentInput}`);
+    setIsAgentLoading(false);
+  };
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -39,43 +50,7 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
     }
   };
 
-  const handleValidate = async () => {
-    setIsValidating(true);
-    setValidationResult(null);
-    
-    try {
-      const isValid = await onValidate();
-      setValidationResult(isValid ? 'success' : 'error');
-      
-      if (isValid) {
-        toast({
-          title: "Quest Complete! 🎉",
-          description: `You earned ${quest.xpReward} XP!`,
-          duration: 3000,
-        });
-        setTimeout(() => {
-          onComplete();
-        }, 1500);
-      } else {
-        toast({
-          title: "Quest Failed",
-          description: "Check your implementation and try again",
-          variant: "destructive",
-          duration: 3000,
-        });
-      }
-    } catch (error) {
-      setValidationResult('error');
-      toast({
-        title: "Validation Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  };
+  // Removed handleValidate function
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -87,7 +62,7 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+  <div className="max-w-4xl mx-auto p-4 relative pb-32" style={{ overflowY: 'hidden' }}>
       <Card className="overflow-hidden bg-gradient-card border-border/50 shadow-card-custom">
         <div className="p-8">
           {/* Header */}
@@ -101,13 +76,16 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
                 <p className="text-muted-foreground">{quest.objective}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className={`${getDifficultyColor(quest.difficulty)} text-white`}>
-                {quest.difficulty}
-              </Badge>
-              <Badge variant="outline" className="border-quest-xp text-quest-xp">
-                {quest.xpReward} XP
-              </Badge>
+            <div className="flex flex-col items-end gap-2 min-w-[120px]">
+              <div className="flex gap-2">
+                <Badge className={`${getDifficultyColor(quest.difficulty)} text-white`}>
+                  {quest.difficulty}
+                </Badge>
+                <Badge variant="outline" className="border-quest-xp text-quest-xp">
+                  {quest.xpReward} XP
+                </Badge>
+              </div>
+              {/* Validate Quest button removed */}
             </div>
           </div>
 
@@ -135,7 +113,10 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
               </Button>
             </div>
             <div className="relative">
-              <pre className="bg-secondary/50 p-4 rounded-lg overflow-x-auto text-sm border border-border/50">
+              <pre
+                className="bg-secondary/50 p-4 rounded-lg overflow-x-auto overflow-y-auto text-sm border border-border/50 max-h-64"
+                style={{ maxHeight: '16rem' }}
+              >
                 <code>{quest.codeSnippet}</code>
               </pre>
             </div>
@@ -153,44 +134,38 @@ const QuestCard = ({ quest, onComplete, onValidate }: QuestCardProps) => {
               </pre>
             </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex gap-4">
-            <Button
-              onClick={handleValidate}
-              disabled={isValidating}
-              className="flex-1 bg-gradient-primary hover:opacity-90"
-              size="lg"
-            >
-              {isValidating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Validating...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Validate Quest
-                </>
-              )}
-            </Button>
-            
-            {validationResult === 'success' && (
-              <div className="flex items-center gap-2 text-quest-success">
-                <Check className="w-5 h-5" />
-                <span className="font-medium">Success!</span>
-              </div>
-            )}
-            
-            {validationResult === 'error' && (
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="w-5 h-5" />
-                <span className="font-medium">Try Again</span>
+        </div>
+      </Card>
+      {/* Sticky Agent Input */}
+      <div className="fixed bottom-0 left-0 w-full z-50 flex justify-center pointer-events-none">
+        <div className="max-w-4xl w-full px-4 pb-4 pointer-events-auto">
+          <div className="bg-gradient-card border-2 border-quest-primary shadow-card-custom rounded-xl p-4 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="flex-1 border rounded-lg px-3 py-2 text-base shadow-sm bg-background text-white placeholder:text-muted-foreground"
+                placeholder="Ask the agent about this quest..."
+                value={agentInput}
+                onChange={e => setAgentInput(e.target.value)}
+                disabled={isAgentLoading}
+              />
+              <Button
+                onClick={handleAskAgent}
+                disabled={!agentInput.trim() || isAgentLoading}
+                className="bg-gradient-primary flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                {isAgentLoading ? "Asking..." : "Ask Agent"}
+              </Button>
+            </div>
+            {agentResponse && (
+              <div className="text-left text-sm bg-secondary/30 p-3 rounded-lg border border-border/50">
+                <span className="font-semibold text-quest-primary">Agent:</span> {agentResponse}
               </div>
             )}
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
