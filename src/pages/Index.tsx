@@ -10,7 +10,6 @@ import { Trophy, Star, PartyPopper } from "lucide-react";
 
 const Index = () => {
   const [businessIntent, setBusinessIntent] = useState<string>("");
-  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("");
   const [currentQuestIndex, setCurrentQuestIndex] = useState(0);
   const [completedQuests, setCompletedQuests] = useState<string[]>([]);
@@ -22,9 +21,8 @@ const Index = () => {
   const totalXp = currentQuests.reduce((sum, quest) => sum + quest.xpReward, 0);
   const isQuestComplete = currentQuestIndex >= currentQuests.length;
 
-  const handleIntentSubmit = (intent: string, methods: string[]) => {
+  const handleIntentSubmit = (intent: string) => {
     setBusinessIntent(intent);
-    setPaymentMethods(methods);
   };
 
   const handleLanguageSelect = (language: string) => {
@@ -65,7 +63,6 @@ const Index = () => {
 
   const resetQuest = () => {
     setBusinessIntent("");
-    setPaymentMethods([]);
     setSelectedLanguage("");
     setCurrentQuestIndex(0);
     setCompletedQuests([]);
