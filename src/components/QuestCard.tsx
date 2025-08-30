@@ -29,6 +29,17 @@ type Message = {
   content: string;
   showApiButton?: boolean;
   suggestions?: string[];
+  apiConfig?: {
+    IsAPIToBeCalledReady?: boolean;
+    API_URL?: string;
+    API_method?: string;
+    BearerToken?: string | null;
+    API_Payload?: {
+      client_id?: string;
+      client_secret?: string;
+      grant_type?: string;
+    };
+  } | null;
 };
 
 const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
@@ -181,13 +192,59 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
     }
 
     try {
-      const response = await axios.patch(`${PEGA_API_BASE_URL}/${conversationId}`, {
+      const messageUrl = `${PEGA_API_BASE_URL}/api/application/v2/ai-agents/@BASECLASS!APIAGENT/conversations/${conversationId}`;
+      console.log('Sending message to:', messageUrl);
+      
+      const response = await axios.patch(messageUrl, {
         Request: text,
       });
+      console.log('Message response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data
+      });
+      
+      // Parse the response to check for API call information
+      const responseText = response.data.response;
+      let apiConfig = null;
+      let showApiButton = false;
+      
+      // Try to extract JSON from the response if it exists
+      try {
+        // Look for any JSON content between ``` markers
+        const jsonBlocks = responseText.match(/```json\s*({[\s\S]*?})\s*```/g);
+        
+        if (jsonBlocks) {
+          // Test each JSON block found
+          for (const block of jsonBlocks) {
+            try {
+              // Extract the JSON content between the markers
+              const jsonContent = block.match(/```json\s*({[\s\S]*?})\s*```/)[1];
+              const parsedConfig = JSON.parse(jsonContent);
+              
+              // Check if this JSON has the API config marker
+              if (parsedConfig.IsAPIToBeCalledReady) {
+                apiConfig = parsedConfig;
+                showApiButton = true;
+                console.log('Found valid API config:', apiConfig);
+                break; // Stop after finding the first valid API config
+              }
+            } catch (jsonError) {
+              console.log('Failed to parse JSON block:', block);
+              continue; // Try next block if this one fails
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Error parsing API config:', error);
+        console.log('Response text was:', responseText);
+      }
+
       const agentResponse: Message = {
         sender: "agent",
         content: response.data.response,
-        // TODO: Add logic to show API button or suggestions based on response
+        showApiButton: showApiButton,
+        apiConfig: apiConfig // Add this to your Message type
       };
       setConversation(prev => [...prev, agentResponse]);
     } catch (error) {
@@ -277,18 +334,18 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
                 {msg.sender === 'agent' && <AgentAvatar />}
                 <div className={`max-w-md rounded-xl px-4 py-3 ${msg.sender === 'agent' ? 'bg-secondary/50' : 'bg-quest-primary/20'}`}>
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  {msg.showApiButton && (
+                  {msg.showApiButton && msg.apiConfig && (
                     <div className="mt-4">
                         <div className="relative bg-secondary/50 p-4 rounded-lg overflow-x-auto text-sm border border-border/50 max-h-64">
                             <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => copyToClipboard(quest.codeSnippet)}
+                                onClick={() => copyToClipboard(JSON.stringify(msg.apiConfig, null, 2))}
                                 className="absolute top-2 right-2 h-7 w-7"
                             >
                                 <Copy className="w-4 h-4" />
                             </Button>
-                            <pre><code>{quest.codeSnippet}</code></pre>
+                            <pre><code>{JSON.stringify(msg.apiConfig, null, 2)}</code></pre>
                         </div>
                         <Dialog open={isApiPlaygroundOpen} onOpenChange={setIsApiPlaygroundOpen}>
                         <DialogTrigger asChild>
@@ -299,13 +356,18 @@ const QuestCard = ({ quest, onComplete }: QuestCardProps) => {
                         </DialogTrigger>
                         <DialogContent className="max-w-4xl">
                           <DialogHeader>
-                            <DialogTitle>API Playground - {quest.title}</DialogTitle>
+                            <DialogTitle>API Playground - Token Generation</DialogTitle>
                           </DialogHeader>
                           <ApiPlayground
-                            initialUrl={quest.validationEndpoint}
-                            initialMethod={quest.api?.method}
-                            initialHeaders={quest.api?.headers}
-                            initialBody={quest.api?.body}
+                            initialUrl={msg.apiConfig.API_URL}
+                            initialMethod={msg.apiConfig.API_method?.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'}
+                            initialHeaders={{
+                              'Content-Type': 'application/json',
+                              ...(msg.apiConfig.BearerToken && {
+                                'Authorization': `Bearer ${msg.apiConfig.BearerToken}`
+                              })
+                            }}
+                            initialBody={msg.apiConfig.API_Payload}
                             onSuccess={handleValidationSuccess}
                             onError={handleValidationError}
                           />
