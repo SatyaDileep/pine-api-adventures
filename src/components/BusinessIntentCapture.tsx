@@ -3,10 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Target, Sparkles, ArrowRight, CreditCard, RefreshCw, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Target, Sparkles, ArrowRight, CreditCard, RefreshCw, Calendar, Smartphone, Banknote, Award, Building } from "lucide-react";
 
 interface BusinessIntentCaptureProps {
-  onIntentSubmit: (intent: string) => void;
+  onIntentSubmit: (intent: string, paymentMethods: string[]) => void;
 }
 
 const suggestedIntents = [
@@ -42,15 +43,57 @@ const suggestedIntents = [
   }
 ];
 
+const paymentMethods = [
+  {
+    id: "card",
+    name: "Credit/Debit Cards",
+    description: "Visa, Mastercard, Rupay",
+    icon: CreditCard
+  },
+  {
+    id: "upi",
+    name: "UPI Payments",
+    description: "PhonePe, GPay, Paytm",
+    icon: Smartphone
+  },
+  {
+    id: "netbanking",
+    name: "Net Banking",
+    description: "All major banks",
+    icon: Building
+  },
+  {
+    id: "points",
+    name: "Loyalty Points",
+    description: "Reward point redemption",
+    icon: Award
+  },
+  {
+    id: "wallet",
+    name: "Digital Wallets",
+    description: "Paytm, Amazon Pay",
+    icon: Banknote
+  }
+];
+
 const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) => {
   const [intent, setIntent] = useState("");
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
 
   const handleSubmit = () => {
     const finalIntent = selectedSuggestion || intent;
-    if (finalIntent.trim()) {
-      onIntentSubmit(finalIntent);
+    if (finalIntent.trim() && selectedPaymentMethods.length > 0) {
+      onIntentSubmit(finalIntent, selectedPaymentMethods);
     }
+  };
+
+  const handlePaymentMethodToggle = (methodId: string) => {
+    setSelectedPaymentMethods(prev => 
+      prev.includes(methodId) 
+        ? prev.filter(id => id !== methodId)
+        : [...prev, methodId]
+    );
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -127,9 +170,54 @@ const BusinessIntentCapture = ({ onIntentSubmit }: BusinessIntentCaptureProps) =
               })}
             </div>
 
+            <div className="space-y-4">
+              <div>
+                <label className="text-lg font-semibold mb-3 block">
+                  Select payment methods to support:
+                </label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Choose the payment methods you want to integrate with your application
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-3">
+                {paymentMethods.map((method) => {
+                  const Icon = method.icon;
+                  const isSelected = selectedPaymentMethods.includes(method.id);
+                  
+                  return (
+                    <Card
+                      key={method.id}
+                      className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        isSelected 
+                          ? 'bg-quest-success/10 border-quest-success/50' 
+                          : 'hover:bg-secondary/50'
+                      }`}
+                      onClick={() => handlePaymentMethodToggle(method.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => handlePaymentMethodToggle(method.id)}
+                          className="pointer-events-none"
+                        />
+                        <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{method.name}</div>
+                          <div className="text-xs text-muted-foreground">{method.description}</div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
             <Button
               onClick={handleSubmit}
-              disabled={!intent.trim()}
+              disabled={!intent.trim() || selectedPaymentMethods.length === 0}
               className="w-full bg-gradient-primary hover:opacity-90 text-lg py-6"
               size="lg"
             >
